@@ -96,6 +96,7 @@ from __future__ import print_function
 
 import time
 import warnings
+import math
 
 # Importing these functions with leading underscore as not intended for reuse
 from Bio._py3k import urlopen as _urlopen
@@ -490,13 +491,13 @@ def parse(handle, validate=True):
 def _open(cgi, params=None, post=None, ecitmatch=False):
     """Build the URL and open a handle to it (PRIVATE).
 
-    Open a handle to Entrez.  cgi is the URL for the cgi script to access.
-    params is a dictionary with the options to pass to it.  Does some
+    Open a handle to Entrez. cgi is the URL for the cgi script to access.
+    params is a dictionary with the options to pass to it. Does some
     simple error checking, and will raise an IOError if it encounters one.
 
     The arugment post should be a boolean to explicitly control if an HTTP
     POST should be used rather an HTTP GET based on the query length.
-    By default (post=None), POST is used if the URL encoded paramters would
+    By default (post=None), POST is used if the URL encoded parameters would
     be over 1000 characters long.
 
     This function also enforces the "up to three queries per second rule"
@@ -513,6 +514,8 @@ def _open(cgi, params=None, post=None, ecitmatch=False):
     else:
         _open.previous = current
 
+    timeout = params.pop("socket_timeout", None)
+
     params = _construct_params(params)
     options = _encode_options(ecitmatch, params)
 
@@ -521,11 +524,21 @@ def _open(cgi, params=None, post=None, ecitmatch=False):
         post = True
     cgi = _construct_cgi(cgi, post, options)
 
+    other_params = {}
+
+    if post:
+        other_params.update({'data': _as_bytes(options)})
+
     try:
-        if post:
-            handle = _urlopen(cgi, data=_as_bytes(options))
-        else:
-            handle = _urlopen(cgi)
+        timeout = float(timeout)
+    except (TypeError, ValueError):
+        timeout = None
+
+    if timeout is not None and not math.isinf(timeout) and timeout > 0:
+        other_params.update({'timeout': timeout})
+
+    try:
+        handle = _urlopen(cgi, **other_params)
     except _HTTPError as exception:
         raise exception
 
