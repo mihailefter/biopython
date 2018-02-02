@@ -1,1 +1,1 @@
-(Biopython fork)[https://github.com/biopython/biopython].
+[Biopython fork](https://github.com/biopython/biopython).
